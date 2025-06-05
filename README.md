@@ -28,7 +28,7 @@ Bem-vindo ao repositório da Equipe 0X do HandsON de Linux do DevTITANS! Este pr
 - **Hellmut Schuster:** Desenvolvedor do Firmware
 - **Amon Menezes:** Desenvolvedor do Driver Linux
 - **Stella Silva:** Desenvolvedor do Driver Linux
-- **Theed Wilk:** Desenvolvedor do Firmware e Escritor da Documentação
+- **Theed Wilk:** Desenvolvedor e Escritor da Documentação
 
 ## Introdução
 
