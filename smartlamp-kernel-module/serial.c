@@ -80,8 +80,20 @@ static int usb_read_serial() {
             continue;
         }
 
-        //caso tenha recebido a mensagem 'RES_LDR X' via serial acesse o buffer 'usb_in_buffer' e retorne apenas o valor da resposta X
-        //retorne o valor de X em inteiro
+        //Acessa o buffer 'usb_in_buffer' e mostra o valor da resposta X
+        printk(KERN_INFO "SmartLamp: Recebido: %s\n", usb_in_buffer);
+        
+        // Procura pelo prefixo esperado
+        if (strncmp(usb_in_buffer, "RES GET_LDR ", 12) == 0) {
+            char *ptr = usb_in_buffer + 12;
+            int ldr_value = simple_strtol(ptr, NULL, 10);  // Converte string para inteiro
+            return ldr_value; // Retorna o valor de X em inteiro
+        } else {
+            printk(KERN_WARNING "SmartLamp: Resposta inesperada: %s\n", usb_in_buffer);
+        }
+
+        retries--;
+
         return 0;
     }
 
