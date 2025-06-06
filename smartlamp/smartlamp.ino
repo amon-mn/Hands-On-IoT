@@ -4,9 +4,10 @@
 int ledPin = 15;
 int ledValue = 10;
 
-int ldrPin=2;
+int ldrPin=0;
+int ldrValue=0;
 // Faça testes no sensor ldr para encontrar o valor maximo e atribua a variável ldrMax
-int ldrMax;
+int ldrMax=4096;
 
 // Intensidade inicial (de 0 a 100)
 
@@ -18,7 +19,9 @@ void setup() {
   // Inicializa LED com valor normalizado
   analogWrite(ledPin, normalizeIntensity(ledValue));
 
-   Serial.printf("SmartLamp Initialized.");
+  Serial.println("SmartLamp Initialized.");
+
+  processCommand("GET_LDR"); 
 }
 
 void loop() {
@@ -28,6 +31,8 @@ void loop() {
     command.trim(); // Remove espaços em branco e quebras de linha
     processCommand(command);
   }
+
+
 }
 
 // Função para atualizar o valor do LED
@@ -51,8 +56,11 @@ int ldrGetValue() {
     // Leia o sensor LDR e retorne o valor normalizado entre 0 e 100
     // faça testes para encontrar o valor maximo do ldr (exemplo: aponte a lanterna do celular para o sensor)       
     // Atribua o valor para a variável ldrMax e utilize esse valor para a normalização
-    int ldrValue = analogRead(ldrPin);
-    return map(ldrValue, 0, 100, 0, 4096);    
+    int  temp = analogRead(ldrPin);
+    ldrValue = map(temp, 2830, ldrMax, 0, 100);
+    Serial.print("RES GET_LDR ");    
+    Serial.println(ldrValue);    
+    return 0;    
 }
 
 
@@ -63,13 +71,10 @@ void processCommand(String command) {
   }
   else if (command == "GET_LED") {
     Serial.print("RES GET_LED ");
-    Serial.println(ldrGetValue());
+    Serial.println(ledValue);
   }
-  else if (command == "GET_LDR") {
-        
-        Serial.print("RES GET_LDR ");    
-        int ldrValue = analogRead(ldrPin);
-        Serial.println(map(ldrValue, 0, 4096, 0, 100));    
+  else if (command == "GET_LDR") {        
+    ldrGetValue();    
   }
   else {
     Serial.println("ERR Unknown command.");
