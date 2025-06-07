@@ -65,37 +65,58 @@ static void usb_disconnect(struct usb_interface *interface) {
     kfree(usb_out_buffer);
 }
 
+
 static int usb_read_serial() {
     int ret, actual_size;
-    int retries = 10;                       // Tenta algumas vezes receber uma resposta da USB. Depois desiste.
+    int retries = 15;
+    char comando[15] = "";
+    int ldr_value;
+    char sldr_value[3] = "";
+    int i=0;
 
-    // Espera pela resposta correta do dispositivo (desiste depois de várias tentativas)
+    // Enviar o comando "GET_LDR\n"
+    const char *cmd = "GET_LDR\n";
+    int len = strlen(cmd);
+    memcpy(usb_out_buffer, cmd, len);
+    ret = usb_bulk_msg(smartlamp_device, usb_sndbulkpipe(smartlamp_device, usb_out), usb_out_buffer, len, &actual_size, 1000);
+    if (ret) {
+        printk(KERN_ERR "SmartLamp: Erro ao enviar comando GET_LDR. Codigo: %d\n", ret);
+        return -1;
+    }
+
     while (retries > 0) {
-        // Lê os dados da porta serial e armazena em usb_in_buffer
-            // usb_in_buffer - contem a resposta em string do dispositivo
-            // actual_size - contem o tamanho da resposta em bytes
         ret = usb_bulk_msg(smartlamp_device, usb_rcvbulkpipe(smartlamp_device, usb_in), usb_in_buffer, min(usb_max_size, MAX_RECV_LINE), &actual_size, 1000);
         if (ret) {
-            printk(KERN_ERR "SmartLamp: Erro ao ler dados da USB (tentativa %d). Codigo: %d\n", ret, retries--);
+            printk(KERN_ERR "SmartLamp: Erro ao ler dados da USB (tentativa %d). Codigo: %d\n", retries, ret);
+            retries--;
             continue;
         }
 
-        //Acessa o buffer 'usb_in_buffer' e mostra o valor da resposta X
+        usb_in_buffer[actual_size] = '\0'; // Garantir fim de string
         printk(KERN_INFO "SmartLamp: Recebido: %s\n", usb_in_buffer);
-        
-        // Procura pelo prefixo esperado
-        if (strncmp(usb_in_buffer, "RES GET_LDR ", 12) == 0) {
-            char *ptr = usb_in_buffer + 12;
-            int ldr_value = simple_strtol(ptr, NULL, 10);  // Converte string para inteiro
-            return ldr_value; // Retorna o valor de X em inteiro
-        } else {
-            printk(KERN_WARNING "SmartLamp: Resposta inesperada: %s\n", usb_in_buffer);
+
+        if(i<15){
+            comando[i] = usb_in_buffer[0];
+            i++;  
         }
 
+
         retries--;
+    } 
 
-        return 0;
-    }
+    printk(comando);
+            
+            sldr_value[0] = comando[12]; 
+            sldr_value[1] = comando[13]; 
+            sldr_value[2] = comando[14]; 
 
-    return -1; 
+            ldr_value = simple_strtol(sldr_value, NULL, 10);
+            printk("O valor é %d", ldr_value);
+    
+
+
+
+    return -1;
 }
+
+
