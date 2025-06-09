@@ -83,27 +83,61 @@ static void usb_disconnect(struct usb_interface *interface) {
     kfree(usb_out_buffer);
 }
 
+// Envia o comando GET_LDR via USB, lê a resposta e retorna o valor do LDR (como inteiro).
+// Exemplo de comando enviado:  GET_LDR
+// Exemplo de resposta esperada: RES GET_LDR 123
+// Retorna: 123 (valor do LDR) ou -1 em caso de erro ou resposta inválida.
 static int usb_read_serial() {
     int ret, actual_size;
-    int retries = 10;                       // Tenta algumas vezes receber uma resposta da USB. Depois desiste.
+    int retries = 16;
+    char comando[20] = "";  // espaço suficiente para "RES GET_LDR 100" + margem
+    int ldr_value;
+    int i = 0;
+    char *ptr;
 
-    // Espera pela resposta correta do dispositivo (desiste depois de várias tentativas)
-    while (retries > 0) {
-        // Lê os dados da porta serial e armazena em usb_in_buffer
-            // usb_in_buffer - contem a resposta em string do dispositivo
-            // actual_size - contem o tamanho da resposta em bytes
-        ret = usb_bulk_msg(smartlamp_device, usb_rcvbulkpipe(smartlamp_device, usb_in), usb_in_buffer, min(usb_max_size, MAX_RECV_LINE), &actual_size, 1000);
+    // Enviar o comando "GET_LDR\n"
+    const char *cmd = "GET_LDR\n";
+    int len = strlen(cmd);
+    memcpy(usb_out_buffer, cmd, len);
+    ret = usb_bulk_msg(smartlamp_device, usb_sndbulkpipe(smartlamp_device, usb_out),
+                       usb_out_buffer, len, &actual_size, 1000);
+    if (ret) {
+        printk(KERN_ERR "SmartLamp: Erro ao enviar comando GET_LDR. Codigo: %d\n", ret);
+        return -1;
+    }
+
+    while (retries > 0 && i < sizeof(comando) - 1) {
+        ret = usb_bulk_msg(smartlamp_device, usb_rcvbulkpipe(smartlamp_device, usb_in),
+                           usb_in_buffer, min(usb_max_size, MAX_RECV_LINE),
+                           &actual_size, 1000);
         if (ret) {
-            printk(KERN_ERR "SmartLamp: Erro ao ler dados da USB (tentativa %d). Codigo: %d\n", ret, retries--);
+            printk(KERN_ERR "SmartLamp: Erro ao ler dados da USB (tentativa %d). Codigo: %d\n", retries, ret);
+            retries--;
             continue;
         }
 
-        //caso tenha recebido a mensagem 'RES_LDR X' via serial acesse o buffer 'usb_in_buffer' e retorne apenas o valor da resposta X
-        //retorne o valor de X em inteiro
-        return 0;
+        usb_in_buffer[actual_size] = '\0'; // Garantir fim de string
+        printk(KERN_INFO "SmartLamp: Recebido: %s\n", usb_in_buffer);
+
+        comando[i++] = usb_in_buffer[0];
+        comando[i] = '\0';  // Garantir que a string final seja válida
+
+        retries--;
     }
 
-    return -1; 
+    printk(KERN_INFO "SmartLamp: Resposta completa: %s\n", comando);
+
+    // Extrair valor após "RES GET_LDR "
+    ptr = strstr(comando, "RES GET_LDR ");
+    if (ptr) {
+        ptr += strlen("RES GET_LDR ");
+        ldr_value = simple_strtol(ptr, NULL, 10);
+        printk(KERN_INFO "SmartLamp: O valor do LDR é %d\n", ldr_value);
+        return ldr_value;
+    } else {
+        printk(KERN_ERR "SmartLamp: Formato de resposta inválido: %s\n", comando);
+        return -1;
+    }
 }
 
 // Executado quando o arquivo /sys/kernel/smartlamp/{led, ldr} é lido (e.g., cat /sys/kernel/smartlamp/led)
@@ -117,7 +151,12 @@ static ssize_t attr_show(struct kobject *sys_obj, struct kobj_attribute *attr, c
     printk(KERN_INFO "SmartLamp: Lendo %s ...\n", attr_name);
 
     // Implemente a leitura do valor do led usando a função usb_read_serial()
-        
+     if (strcmp(attr_name, "ldr") == 0) {
+        value = usb_read_serial();  // Chama a função da Task 3
+    } else if (strcmp(attr_name, "led") == 0) {
+        // Ainda não implementado GET_LED, pode deixar como valor fixo ou TODO
+        value = 0;
+    }
 
     sprintf(buff, "%d\n", value);                   // Cria a mensagem com o valor do led, ldr
     return strlen(buff);
