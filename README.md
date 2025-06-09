@@ -131,7 +131,3 @@ Depois que o driver e o firmware estiverem configurados, você poderá interagir
     ```sh
     sudo rmmod smartlamp
     ```
-    
-## Contato
-
-Para perguntas, sugestões ou feedback, entre em contato com o mantenedor do projeto em [maintainer@example.com](mailto:maintainer@example.com).
