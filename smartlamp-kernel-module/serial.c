@@ -67,152 +67,11 @@ static void usb_disconnect(struct usb_interface *interface) {
 
 static int usb_read_serial() {
     int ret, actual_size;
-    int retries = 15;
-    char comando[20] = "";
-    int ldr_value;
-    int i=0;
-
-    // Enviar o comando "GET_LDR\n"
-    const char *cmd = "GET_LDR\n";
-    int len = strlen(cmd);
-    memcpy(usb_out_buffer, cmd, len);
-    ret = usb_bulk_msg(smartlamp_device, usb_sndbulkpipe(smartlamp_device, usb_out), usb_out_buffer, len, &actual_size, 1000);
-    if (ret) {
-        printk(KERN_ERR "SmartLamp: Erro ao enviar comando GET_LDR. Codigo: %d\n", ret);
-        return -1;
-    }
-
-    while (retries > 0) {
-        ret = usb_bulk_msg(smartlamp_device, usb_rcvbulkpipe(smartlamp_device, usb_in), usb_in_buffer, min(usb_max_size, MAX_RECV_LINE), &actual_size, 1000);
-        if (ret) {
-            printk(KERN_ERR "SmartLamp: Erro ao ler dados da USB (tentativa %d). Codigo: %d\n", retries, ret);
-            retries--;
-            continue;
-        }
-
-        usb_in_buffer[actual_size] = '\0'; // Garantir fim de string
-        printk(KERN_INFO "SmartLamp: Recebido: %s\n", usb_in_buffer);
-
-        if(i<15){
-            comando[i] = usb_in_buffer[0];
-            i++;  
-        }
-
-
-        retries--;
-    } 
-
-    printk(KERN_INFO "Smartlamp: Resposta completa:%s\n" comando);
-
-        ldr_value = simple_strtol(comando+12, NULL, 10);
-        printk(KERN_INFO "Smartlamp: O valor do LDR é %d", ldr_value);
-
-    return -1;
-}
-
-/*
-static int usb_read_serial() {
-    int ret, actual_size;
-    int retries = 15;
-    char comando[20] = "";
-    int ldr_value;
-
-
-    // Enviar o comando "GET_LDR\n"
-    const char *cmd = "GET_LDR\n";
-    int len = strlen(cmd);
-    memcpy(usb_out_buffer, cmd, len);
-    ret = usb_bulk_msg(smartlamp_device, usb_sndbulkpipe(smartlamp_device, usb_out), usb_out_buffer, len, &actual_size, 1000);
-    if (ret) {
-        printk(KERN_ERR "SmartLamp: Erro ao enviar comando GET_LDR. Codigo: %d\n", ret);
-        return -1;
-    }
-
-    while (retries > 0) {
-        ret = usb_bulk_msg(smartlamp_device, usb_rcvbulkpipe(smartlamp_device, usb_in), usb_in_buffer, min(usb_max_size, MAX_RECV_LINE), &actual_size, 1000);
-        if (ret) {
-            printk(KERN_ERR "SmartLamp: Erro ao ler dados da USB (tentativa %d). Codigo: %d\n", retries, ret);
-            retries--;
-            continue;
-        }
-
-        usb_in_buffer[actual_size] = '\0'; // Garantir fim de string
-        printk(KERN_INFO "SmartLamp: Recebido: %s\n", usb_in_buffer);
-
-        comando = strcat(comando,&usb_in_buffer[0]);
-
-        retries--;
-    } 
-
-    printk(KERN_INFO "Smartlamp: Resposta completa:%s\n" comando);
-
-            ldr_value = simple_strtol(comando+12, NULL, 10);
-            printk(KERN_INFO "Smartlamp: O valor do LDR é %d", ldr_value);
-
-    return ldr_value;
-}
-*/
-
-/*
-static int usb_read_serial() {
-    int ret, actual_size;
-    int retries = 15;
-    char comando[15] = "";
-    int ldr_value;
-    char sldr_value[3] = "";
-    int i=0;
-
-    // Enviar o comando "GET_LDR\n"
-    const char *cmd = "GET_LDR\n";
-    int len = strlen(cmd);
-    memcpy(usb_out_buffer, cmd, len);
-    ret = usb_bulk_msg(smartlamp_device, usb_sndbulkpipe(smartlamp_device, usb_out), usb_out_buffer, len, &actual_size, 1000);
-    if (ret) {
-        printk(KERN_ERR "SmartLamp: Erro ao enviar comando GET_LDR. Codigo: %d\n", ret);
-        return -1;
-    }
-
-    while (retries > 0) {
-        ret = usb_bulk_msg(smartlamp_device, usb_rcvbulkpipe(smartlamp_device, usb_in), usb_in_buffer, min(usb_max_size, MAX_RECV_LINE), &actual_size, 1000);
-        if (ret) {
-            printk(KERN_ERR "SmartLamp: Erro ao ler dados da USB (tentativa %d). Codigo: %d\n", retries, ret);
-            retries--;
-            continue;
-        }
-
-        usb_in_buffer[actual_size] = '\0'; // Garantir fim de string
-        printk(KERN_INFO "SmartLamp: Recebido: %s\n", usb_in_buffer);
-
-        if(i<15){
-            comando[i] = usb_in_buffer[0];
-            i++;  
-        }
-
-
-        retries--;
-    } 
-
-    printk(comando);
-    
-            sldr_value[0] = comando[12]; 
-            sldr_value[1] = comando[13]; 
-            sldr_value[2] = comando[14]; 
-
-            ldr_value = simple_strtol(sldr_value, NULL, 10);
-            printk("O valor é %d", ldr_value);
-
-    return -1;
-}
-*/
-
-/*
-static int usb_read_serial() {
-    int ret, actual_size;
-    int retries = 15;
-    char comando[20] = "";  // espaço suficiente para "RES GET_LDR 1023" + margem
+    int retries = 16;
+    char comando[20] = "";  // espaço suficiente para "RES GET_LDR 100" + margem
     int ldr_value;
     int i = 0;
-    int j;
+    char *ptr;
 
     // Enviar o comando "GET_LDR\n"
     const char *cmd = "GET_LDR\n";
@@ -238,11 +97,7 @@ static int usb_read_serial() {
         usb_in_buffer[actual_size] = '\0'; // Garantir fim de string
         printk(KERN_INFO "SmartLamp: Recebido: %s\n", usb_in_buffer);
 
-        // Copiar todos os bytes recebidos para 'comando'
-        
-        for (j = 0; j < actual_size && i < sizeof(comando) - 1; j++, i++) {
-            comando[i] = usb_in_buffer[j];
-        }
+        comando[i++] = usb_in_buffer[0];
         comando[i] = '\0';  // Garantir que a string final seja válida
 
         retries--;
@@ -251,7 +106,7 @@ static int usb_read_serial() {
     printk(KERN_INFO "SmartLamp: Resposta completa: %s\n", comando);
 
     // Extrair valor após "RES GET_LDR "
-    char *ptr = strstr(comando, "RES GET_LDR ");
+    ptr = strstr(comando, "RES GET_LDR ");
     if (ptr) {
         ptr += strlen("RES GET_LDR ");
         ldr_value = simple_strtol(ptr, NULL, 10);
@@ -262,5 +117,5 @@ static int usb_read_serial() {
         return -1;
     }
 }
-*/
+
 
