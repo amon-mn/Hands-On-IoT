@@ -1,4 +1,4 @@
-obj-m += smartlamp.o
+obj-m += sysfs.o
 PWD := $(CURDIR)
 
 all:
