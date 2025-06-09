@@ -65,6 +65,10 @@ static void usb_disconnect(struct usb_interface *interface) {
     kfree(usb_out_buffer);
 }
 
+// Envia o comando GET_LDR via USB, lê a resposta e retorna o valor do LDR (como inteiro).
+// Exemplo de comando enviado:  GET_LDR
+// Exemplo de resposta esperada: RES GET_LDR 123
+// Retorna: 123 (valor do LDR) ou -1 em caso de erro ou resposta inválida.
 static int usb_read_serial() {
     int ret, actual_size;
     int retries = 16;
