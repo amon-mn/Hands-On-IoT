@@ -17,13 +17,6 @@ Bem-vindo ao repositório da Equipe 0X do HandsON de Linux do DevTITANS! Este pr
 
 ## Contribuidores
 
-<img src="https://github.com/DevTITANS05/Hands-On-Linux-fork-/assets/21023906/85e61f3e-476c-47a4-82d5-4054e856c67b" width="180" >
-<img src="https://github.com/DevTITANS05/Hands-On-Linux-fork-/assets/21023906/85e61f3e-476c-47a4-82d5-4054e856c67b" width="180" >
-<img src="https://github.com/DevTITANS05/Hands-On-Linux-fork-/assets/21023906/85e61f3e-476c-47a4-82d5-4054e856c67b" width="180" >
-<img src="https://github.com/DevTITANS05/Hands-On-Linux-fork-/assets/21023906/85e61f3e-476c-47a4-82d5-4054e856c67b" width="180" >
-<img src="https://github.com/DevTITANS05/Hands-On-Linux-fork-/assets/21023906/85e61f3e-476c-47a4-82d5-4054e856c67b" width="180" >
-<img src="https://github.com/DevTITANS05/Hands-On-Linux-fork-/assets/21023906/85e61f3e-476c-47a4-82d5-4054e856c67b" width="180" >
-
 - **Alex Monteiro:** Desenvolvedor do Firmware e Mantenedor do Projeto
 - **Hellmut Schuster:** Desenvolvedor do Firmware
 - **Amon Menezes:** Desenvolvedor do Driver Linux
@@ -138,7 +131,3 @@ Depois que o driver e o firmware estiverem configurados, você poderá interagir
     ```sh
     sudo rmmod smartlamp
     ```
-    
-## Contato
-
-Para perguntas, sugestões ou feedback, entre em contato com o mantenedor do projeto em [maintainer@example.com](mailto:maintainer@example.com).
