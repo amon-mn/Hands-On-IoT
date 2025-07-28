@@ -25,14 +25,25 @@ static int  usb_probe(struct usb_interface *ifce, const struct usb_device_id *id
 static void usb_disconnect(struct usb_interface *ifce);                           // Executado quando o dispositivo USB é desconectado da USB
 static int  usb_send_cmd(char *cmd, int param); 
 
-// Executado quando o arquivo /sys/kernel/smartlamp/{led, ldr} é lido (e.g., cat /sys/kernel/smartlamp/led)
+// Executado quando o arquivo /sys/kernel/smartlamp/{led, ldr, temp, hum} é lido
 static ssize_t attr_show(struct kobject *sys_obj, struct kobj_attribute *attr, char *buff);
-// Executado quando o arquivo /sys/kernel/smartlamp/{led, ldr} é escrito (e.g., echo "100" | sudo tee -a /sys/kernel/smartlamp/led)
+// Executado quando o arquivo /sys/kernel/smartlamp/{led} é escrito
 static ssize_t attr_store(struct kobject *sys_obj, struct kobj_attribute *attr, const char *buff, size_t count);   
-// Variáveis para criar os arquivos no /sys/kernel/smartlamp/{led, ldr}
+
+// Variáveis para criar os arquivos no /sys/kernel/smartlamp/{led, ldr, temp, hum}
 static struct kobj_attribute  led_attribute = __ATTR(led, S_IRUGO | S_IWUSR, attr_show, attr_store);
-static struct kobj_attribute  ldr_attribute = __ATTR(ldr, S_IRUGO | S_IWUSR, attr_show, attr_store);
-static struct attribute      *attrs[]       = { &led_attribute.attr, &ldr_attribute.attr, NULL };
+static struct kobj_attribute  ldr_attribute = __ATTR(ldr, S_IRUGO, attr_show, NULL); // LDR é somente leitura, então attr_store é NULL
+static struct kobj_attribute  temp_attribute = __ATTR(temp, S_IRUGO, attr_show, NULL); // Temp é somente leitura
+static struct kobj_attribute  hum_attribute = __ATTR(hum, S_IRUGO, attr_show, NULL);   // Hum é somente leitura
+
+static struct attribute      *attrs[]       = { 
+    &led_attribute.attr, 
+    &ldr_attribute.attr, 
+    &temp_attribute.attr,
+    &hum_attribute.attr,  
+    NULL 
+};
+
 static struct attribute_group attr_group    = { .attrs = attrs };
 static struct kobject        *sys_obj;                                             // Executado para ler a saida da porta serial
 
@@ -113,11 +124,16 @@ static int usb_send_cmd(char *cmd, int param) {
     } else if (strcmp(cmd, "GET_LDR") == 0) {
         snprintf(cmd_buffer, MAX_RECV_LINE, "GET_LDR\n");
         snprintf(resp_expected, MAX_RECV_LINE, "RES GET_LDR");
+    } else if (strcmp(cmd, "GET_TEMP") == 0) { // Comando GET_TEMP
+        snprintf(cmd_buffer, MAX_RECV_LINE, "GET_TEMP\n");
+        snprintf(resp_expected, MAX_RECV_LINE, "RES GET_TEMP");
+    } else if (strcmp(cmd, "GET_HUM") == 0) { // Comando GET_HUM
+        snprintf(cmd_buffer, MAX_RECV_LINE, "GET_HUM\n");
+        snprintf(resp_expected, MAX_RECV_LINE, "RES GET_HUM");
     } else {
         printk(KERN_ERR "SmartLamp: Comando desconhecido: %s\n", cmd);
         return -1;
     }
-
     printk(KERN_INFO "SmartLamp: Enviando comando: %s", cmd_buffer);
 
     // Envia o comando para a USB
@@ -188,6 +204,10 @@ static ssize_t attr_show(struct kobject *sys_obj, struct kobj_attribute *attr, c
         value = usb_send_cmd("GET_LED", 0);
     } else if (strcmp(attr_name, "ldr") == 0) {
         value = usb_send_cmd("GET_LDR", 0);
+    } else if (strcmp(attr_name, "temp") == 0) { // Comando GET_TEMP
+        value = usb_send_cmd("GET_TEMP", 0);
+    } else if (strcmp(attr_name, "hum") == 0) {  // Comando GET_HUM
+        value = usb_send_cmd("GET_HUM", 0);
     } else {
         printk(KERN_ERR "SmartLamp: Atributo desconhecido: %s\n", attr_name);
         return -EINVAL;
@@ -230,9 +250,9 @@ static ssize_t attr_store(struct kobject *sys_obj, struct kobj_attribute *attr, 
             printk(KERN_ALERT "SmartLamp: erro ao setar o valor do %s.\n", attr_name);
             return -EIO;
         }
-    } else if (strcmp(attr_name, "ldr") == 0) {
-        // LDR é somente leitura
-        printk(KERN_ALERT "SmartLamp: LDR é somente leitura.\n");
+    } else if (strcmp(attr_name, "ldr") == 0 || strcmp(attr_name, "temp") == 0 || strcmp(attr_name, "hum") == 0) {
+        // LDR, TEMP, HUM são somente leitura
+        printk(KERN_ALERT "SmartLamp: %s é somente leitura.\n", attr_name);
         return -EACCES;
     } else {
         printk(KERN_ERR "SmartLamp: Atributo desconhecido: %s\n", attr_name);
