@@ -90,7 +90,7 @@ void processCommand(String command) {
   }
   else if (command == "GET_HUM") {
     float h = dht.readHumidity();
-    Serial.print("RES GET_HUMN ");
+    Serial.print("RES GET_HUM ");
     Serial.println(h);
   }
   else {
