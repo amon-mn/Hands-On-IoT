@@ -1,18 +1,27 @@
+#include <DHT.h>
+
 // Defina os pinos de LED e LDR
 // Defina uma variável com valor máximo do LDR (4000)
 // Defina uma variável para guardar o valor atual do LED (10)
 int ledPin = 15;
 int ledValue = 10;
 
-int ldrPin=0;
+int ldrPin=25;
 int ldrValue=0;
 // Faça testes no sensor ldr para encontrar o valor maximo e atribua a variável ldrMax
 int ldrMax=4096;
 
+// Defina o pino de entrada do DHT 11
+int dhtPin = 14;
+
+// Defina o tipo de DHT
+#define DHTTYPE DHT11
+DHT dht(dhtPin, DHTTYPE);
+
 // Intensidade inicial (de 0 a 100)
 
 void setup() {
-  Serial.begin(9600);
+  Serial.begin(115200);
   pinMode(ledPin, OUTPUT);
   pinMode(ldrPin, INPUT);
 
@@ -52,18 +61,18 @@ void ledUpdate(String command) {
 // Função para ler o valor do LDR
 int ldrGetValue() {
     // Leia o sensor LDR e retorne o valor normalizado entre 0 e 100
-    // faça testes para encontrar o valor maximo do ldr (exemplo: aponte a lanterna do celular para o sensor)       
+    // faça testes para encontrar o valor maximo do ldr (exemplo: aponte a lanterna do celular para o sensor)
     // Atribua o valor para a variável ldrMax e utilize esse valor para a normalização
     int  temp = analogRead(ldrPin);
-    ldrValue = map(temp, 2830, ldrMax, 0, 100);
-    Serial.print("RES GET_LDR ");    
-    Serial.println(ldrValue);    
-    return 0;    
+    ldrValue = map(temp, 0, ldrMax, 0, 100);
+    Serial.print("RES GET_LDR ");
+    Serial.println(ldrValue);
+    return 0;
 }
 
 
 void processCommand(String command) {
-  // compare o comando com os comandos possíveis e execute a ação correspondente    
+  // compare o comando com os comandos possíveis e execute a ação correspondente
   if (command.startsWith("SET_LED ")) {
       ledUpdate(command);
   }
@@ -71,8 +80,18 @@ void processCommand(String command) {
     Serial.print("RES GET_LED ");
     Serial.println(ledValue);
   }
-  else if (command == "GET_LDR") {        
-    ldrGetValue();    
+  else if (command == "GET_LDR") {
+    ldrGetValue();
+  }
+  else if (command == "GET_TEMP") {
+    float t = dht.readTemperature();
+    Serial.print("RES GET_TEMP ");
+    Serial.println(t);
+  }
+  else if (command == "GET_HUM") {
+    float h = dht.readHumidity();
+    Serial.print("RES GET_HUMN ");
+    Serial.println(h);
   }
   else {
     Serial.println("ERR Unknown command.");
