@@ -29,6 +29,14 @@ Este projeto serve como um exemplo para desenvolvedores interessados em construi
 - Firmware para o microcontrolador ESP32 para lidar com operações específicas do dispositivo.
 - Um driver do kernel Linux que se comunica com o dispositivo ESP32, permitindo troca de dados e controle.
 
+## O Hands-On de IOT  consiste em:
+
+- montar um protótipo esp32
+- Programar seu firmware
+- Programar seu módulo no linux
+- Definir suas entradas no sysfs
+- Integrar o DHT e Implementar o configfs.
+
 ## Recursos
 
 - **Firmware ESP32:**
