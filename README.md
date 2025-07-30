@@ -2,7 +2,7 @@
 
 # DevTITANS 05 - HandsOn IOT - Equipe 07
 
-Bem-vindo ao repositório da Equipe 0X do HandsON de Linux do DevTITANS! Este projeto contém um firmware para o ESP32 escrito em formato Arduino `.ino`, bem como um driver do kernel Linux escrito em C. O objetivo é demonstrar como criar uma solução completa de hardware e software que integra um dispositivo ESP32 com um sistema Linux.
+Bem-vindo ao repositório da Equipe 07 do HandsON de IoT do DevTITANS! Este projeto contém um firmware para o ESP32 escrito em formato Arduino `.ino`, bem como um driver do kernel Linux escrito em C. O objetivo é demonstrar como criar uma solução completa de hardware e software que integra um dispositivo ESP32 com um sistema Linux.
 
 ## Tabela de Conteúdos
 
@@ -20,7 +20,7 @@ Bem-vindo ao repositório da Equipe 0X do HandsON de Linux do DevTITANS! Este pr
 - **Alex Monteiro:** Desenvolvedor do Firmware e Mantenedor do Projeto
 - **Hellmut Schuster:** Desenvolvedor do Firmware
 - **Amon Menezes:** Desenvolvedor do Driver Linux
-- **Stella Silva:** Desenvolvedor do Driver Linux
+- **Stella Silva:** Desenvolvedor do Escritora da Documentação Wiki
 - **Theed Wilk:** Desenvolvedor e Escritor da Documentação
 
 ## Introdução
