@@ -21,7 +21,7 @@ DHT dht(dhtPin, DHTTYPE);
 // Intensidade inicial (de 0 a 100)
 
 void setup() {
-  Serial.begin(115200);
+  Serial.begin(9600);
   pinMode(ledPin, OUTPUT);
   pinMode(ldrPin, INPUT);
 
