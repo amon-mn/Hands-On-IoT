@@ -8,8 +8,6 @@ MODULE_LICENSE("GPL");
 
 #define MAX_RECV_LINE 100 // Tamanho máximo de uma linha de resposta do dispositvo USB
 
-
-
 static char recv_line[MAX_RECV_LINE];              // Armazena dados vindos da USB até receber um caractere de nova linha '\n'
 static struct usb_device *smartlamp_device;        // Referência para o dispositivo USB
 static uint usb_in, usb_out;                       // Endereços das portas de entrada e saida da USB
@@ -17,8 +15,8 @@ static char *usb_in_buffer, *usb_out_buffer;       // Buffers de entrada e saíd
 static char *cmd_buffer;                            // Buffer para montar o comando completo
 static int usb_max_size;                           // Tamanho máximo de uma mensagem USB
 
-#define VENDOR_ID   0x10c4 /* Encontre o VendorID  do smartlamp */
-#define PRODUCT_ID  0xea60 /* Encontre o ProductID do smartlamp */
+#define VENDOR_ID   0x10c4 
+#define PRODUCT_ID  0xea60 
 static const struct usb_device_id id_table[] = { { USB_DEVICE(VENDOR_ID, PRODUCT_ID) }, {} };
 
 static int  usb_probe(struct usb_interface *ifce, const struct usb_device_id *id); // Executado quando o dispositivo é conectado na USB
@@ -168,6 +166,9 @@ static int usb_send_cmd(char *cmd, int param) {
                     if (strcmp(cmd, "SET_LED") == 0) {
                         // Para SET_LED, a resposta é "RES SET_LED 1" (sucesso) ou "RES SET_LED 0" (erro)
                         resp_number = simple_strtol(recv_line + strlen(resp_expected) + 1, NULL, 10);
+                    else if {
+                        // Para GET_TEMP e GET_HUM, a resposta é "RES GET_TEMP XX.XX" ou "RES GET_HUM XX.XX"
+
                     } else {
                         // Para GET_LED e GET_LDR, a resposta é "RES GET_LED X" ou "RES GET_LDR Y"
                         resp_number = simple_strtol(recv_line + strlen(resp_expected) + 1, NULL, 10);
@@ -261,3 +262,335 @@ static ssize_t attr_store(struct kobject *sys_obj, struct kobj_attribute *attr, 
 
     return count;
 }
+
+/*
+#include <linux/module.h>
+#include <linux/usb.h>
+#include <linux/slab.h>
+#include <linux/string.h> // Para strncmp, strcmp
+#include <linux/kernel.h> // Para kstrtof, printk
+
+MODULE_AUTHOR("DevTITANS <devtitans@icomp.ufam.edu.br>");
+MODULE_DESCRIPTION("Driver de acesso ao SmartLamp (ESP32 com Chip Serial CP2102");
+MODULE_LICENSE("GPL");
+
+#define MAX_RECV_LINE 100 // Tamanho máximo de uma linha de resposta do dispositivo USB
+
+static char recv_line[MAX_RECV_LINE];              // Armazena dados vindos da USB até receber um caractere de nova linha '\n'
+static struct usb_device *smartlamp_device;        // Referência para o dispositivo USB
+static uint usb_in, usb_out;                       // Endereços das portas de entrada e saida da USB
+static char *usb_in_buffer, *usb_out_buffer;       // Buffers de entrada e saída da USB
+static char *cmd_buffer;                            // Buffer para montar o comando completo
+static int usb_max_size;                           // Tamanho máximo de uma mensagem USB
+
+#define VENDOR_ID   0x10c4
+#define PRODUCT_ID  0xea60 
+static const struct usb_device_id id_table[] = { { USB_DEVICE(VENDOR_ID, PRODUCT_ID) }, {} };
+
+static int  usb_probe(struct usb_interface *ifce, const struct usb_device_id *id); // Executado quando o dispositivo é conectado na USB
+static void usb_disconnect(struct usb_interface *ifce);                           // Executado quando o dispositivo USB é desconectado da USB
+
+// --- NOVO PROTÓTIPO PARA usb_send_cmd ---
+// Agora a função preencherá um ponteiro `int_val` OU `float_val` dependendo do comando
+// E retornará um código de status (0 para sucesso, <0 para erro)
+static int  usb_send_cmd(char *cmd, int param, int *int_val, float *float_val);
+
+// Executado quando o arquivo /sys/kernel/smartlamp/{led, ldr, temp, hum} é lido
+static ssize_t attr_show(struct kobject *sys_obj, struct kobj_attribute *attr, char *buff);
+// Executado quando o arquivo /sys/kernel/smartlamp/{led} é escrito
+static ssize_t attr_store(struct kobject *sys_obj, struct kobj_attribute *attr, const char *buff, size_t count);   
+
+// Variáveis para criar os arquivos no /sys/kernel/smartlamp/{led, ldr, temp, hum}
+static struct kobj_attribute  led_attribute = __ATTR(led, S_IRUGO | S_IWUSR, attr_show, attr_store);
+static struct kobj_attribute  ldr_attribute = __ATTR(ldr, S_IRUGO, attr_show, NULL);
+static struct kobj_attribute  temp_attribute = __ATTR(temp, S_IRUGO, attr_show, NULL);
+static struct kobj_attribute  hum_attribute = __ATTR(hum, S_IRUGO, attr_show, NULL);
+
+static struct attribute      *attrs[]       = { 
+    &led_attribute.attr, 
+    &ldr_attribute.attr, 
+    &temp_attribute.attr,
+    &hum_attribute.attr,   
+    NULL 
+};
+
+static struct attribute_group attr_group    = { .attrs = attrs };
+static struct kobject        *sys_obj;                                             
+
+MODULE_DEVICE_TABLE(usb, id_table);
+
+bool ignore = true; // Variável 'ignore' mantida para compatibilidade
+int LDR_value = 0;  // Mantido para compatibilidade
+
+static struct usb_driver smartlamp_driver = {
+    .name        = "smartlamp",     // Nome do driver
+    .probe       = usb_probe,       // Executado quando o dispositivo é conectado na USB
+    .disconnect  = usb_disconnect,  // Executado quando o dispositivo é desconectado na USB
+    .id_table    = id_table,        // Tabela com o VendorID e ProductID do dispositivo
+};
+
+module_usb_driver(smartlamp_driver);
+
+// Executado quando o dispositivo é conectado na USB
+static int usb_probe(struct usb_interface *interface, const struct usb_device_id *id) {
+    struct usb_endpoint_descriptor *usb_endpoint_in, *usb_endpoint_out;
+    int ret;
+
+    printk(KERN_INFO "SmartLamp: Dispositivo conectado ...\n");
+
+    // Cria arquivos do /sys/kernel/smartlamp/*
+    sys_obj = kobject_create_and_add("smartlamp", kernel_kobj);
+    if (!sys_obj) {
+        printk(KERN_ERR "SmartLamp: Falha ao criar kobject.\n");
+        return -ENOMEM;
+    }
+    ret = sysfs_create_group(sys_obj, &attr_group);
+    if (ret) {
+        printk(KERN_ERR "SmartLamp: Falha ao criar grupo de atributos sysfs. Código: %d\n", ret);
+        kobject_put(sys_obj);
+        return ret;
+    }
+
+    // Detecta portas e aloca buffers de entrada e saída de dados na USB
+    smartlamp_device = interface_to_usbdev(interface);
+    ret = usb_find_common_endpoints(interface->cur_altsetting, &usb_endpoint_in, &usb_endpoint_out, NULL, NULL);
+    if (ret) {
+        printk(KERN_ERR "SmartLamp: Falha ao encontrar endpoints USB. Código: %d\n", ret);
+        kobject_put(sys_obj);
+        return ret;
+    }
+    usb_max_size = usb_endpoint_maxp(usb_endpoint_in);
+    usb_in = usb_endpoint_in->bEndpointAddress;
+    usb_out = usb_endpoint_out->bEndpointAddress;
+    usb_in_buffer = kmalloc(usb_max_size, GFP_KERNEL);
+    usb_out_buffer = kmalloc(usb_max_size, GFP_KERNEL);
+    cmd_buffer = kmalloc(MAX_RECV_LINE, GFP_KERNEL);
+
+    if (!usb_in_buffer || !usb_out_buffer || !cmd_buffer) {
+        printk(KERN_ERR "SmartLamp: Falha ao alocar buffers USB.\n");
+        kfree(usb_in_buffer);
+        kfree(usb_out_buffer);
+        kfree(cmd_buffer);
+        kobject_put(sys_obj);
+        return -ENOMEM;
+    }
+
+    // Testa a comunicação lendo o valor inicial do LDR
+    // Note que agora estamos passando NULL para o ponteiro float_val
+    ret = usb_send_cmd("GET_LDR", 0, &LDR_value, NULL);
+    printk("SmartLamp: LDR Value inicial: %d (status: %d)\n", LDR_value, ret);
+    if (ret < 0) {
+        printk(KERN_ERR "SmartLamp: Falha ao ler LDR inicial. Verifique conexão e firmware.\n");
+    }
+
+    return 0;
+}
+
+// Executado quando o dispositivo USB é desconectado da USB
+static void usb_disconnect(struct usb_interface *interface) {
+    printk(KERN_INFO "SmartLamp: Dispositivo desconectado.\n");
+    if (sys_obj) kobject_put(sys_obj);      // Remove os arquivos em /sys/kernel/smartlamp
+    kfree(usb_in_buffer);                   // Desaloca buffers
+    kfree(usb_out_buffer);
+    kfree(cmd_buffer);                      // Desaloca buffers
+}
+
+// Envia um comando via USB, espera e preenche o valor em int_val ou float_val
+// Retorna 0 em sucesso, <0 em erro.
+static int usb_send_cmd(char *cmd, int param, int *int_val, float *float_val) {
+    int recv_size = 0;                      // Quantidade de caracteres no recv_line
+    int ret, actual_size, i;
+    int retries = 20;                       // Tenta algumas vezes receber uma resposta da USB. Depois desiste.
+    char resp_expected[MAX_RECV_LINE];      // Resposta esperada do comando
+    
+    // Limpa os buffers
+    memset(recv_line, 0, MAX_RECV_LINE);
+    memset(cmd_buffer, 0, MAX_RECV_LINE);
+    memset(resp_expected, 0, MAX_RECV_LINE);
+
+    // Monta o comando completo baseado no tipo
+    if (strcmp(cmd, "SET_LED") == 0) {
+        snprintf(cmd_buffer, MAX_RECV_LINE, "SET_LED %d\n", param);
+        snprintf(resp_expected, MAX_RECV_LINE, "RES SET_LED");
+    } else if (strcmp(cmd, "GET_LED") == 0) {
+        snprintf(cmd_buffer, MAX_RECV_LINE, "GET_LED\n");
+        snprintf(resp_expected, MAX_RECV_LINE, "RES GET_LED");
+    } else if (strcmp(cmd, "GET_LDR") == 0) {
+        snprintf(cmd_buffer, MAX_RECV_LINE, "GET_LDR\n");
+        snprintf(resp_expected, MAX_RECV_LINE, "RES GET_LDR");
+    } else if (strcmp(cmd, "GET_TEMP") == 0) {
+        snprintf(cmd_buffer, MAX_RECV_LINE, "GET_TEMP\n");
+        snprintf(resp_expected, MAX_RECV_LINE, "RES GET_TEMP");
+    } else if (strcmp(cmd, "GET_HUM") == 0) {
+        snprintf(cmd_buffer, MAX_RECV_LINE, "GET_HUM\n");
+        snprintf(resp_expected, MAX_RECV_LINE, "RES GET_HUM");
+    } else {
+        printk(KERN_ERR "SmartLamp: Comando desconhecido: %s\n", cmd);
+        return -EINVAL; // Retorna erro de argumento inválido
+    }
+    printk(KERN_INFO "SmartLamp: Enviando comando: %s", cmd_buffer);
+
+    // Envia o comando para a USB
+    ret = usb_bulk_msg(smartlamp_device, usb_sndbulkpipe(smartlamp_device, usb_out), 
+                       cmd_buffer, strlen(cmd_buffer), &actual_size, 1000); // Timeout de 1000ms
+    if (ret) {
+        printk(KERN_ERR "SmartLamp: Erro de código %d ao enviar comando!\n", ret);
+        return ret; // Retorna o código de erro da USB
+    }
+
+    // Espera pela resposta correta do dispositivo
+    while (retries > 0) {
+        // Lê dados da USB
+        ret = usb_bulk_msg(smartlamp_device, usb_rcvbulkpipe(smartlamp_device, usb_in), 
+                          usb_in_buffer, min(usb_max_size, MAX_RECV_LINE), &actual_size, 1000); // Timeout de 1000ms
+        if (ret) {
+            printk(KERN_ERR "SmartLamp: Erro ao ler dados da USB (tentativa %d). Código: %d\n", retries, ret);
+            retries--;
+            continue;
+        }
+
+        // Processa os dados recebidos, construindo linha por linha
+        for (i = 0; i < actual_size; i++) {
+            if (usb_in_buffer[i] == '\n' || recv_size >= MAX_RECV_LINE - 1) {
+                recv_line[recv_size] = '\0'; // Termina a string
+                
+                printk(KERN_INFO "SmartLamp: Resposta recebida: '%s'\n", recv_line);
+                
+                // Verifica se a resposta é a esperada
+                if (strncmp(recv_line, resp_expected, strlen(resp_expected)) == 0) {
+                    char *value_start = recv_line + strlen(resp_expected) + 1; // Ponteiro para o início do valor numérico
+                    
+                    if (strcmp(cmd, "SET_LED") == 0 || strcmp(cmd, "GET_LED") == 0 || 
+                        strcmp(cmd, "GET_LDR") == 0) {
+                        // Para comandos que retornam inteiros
+                        long val;
+                        ret = kstrtol(value_start, 10, &val);
+                        if (ret) {
+                            printk(KERN_ERR "SmartLamp: Erro ao converter inteiro '%s'. Código: %d\n", value_start, ret);
+                            return -EINVAL;
+                        }
+                        if (int_val) *int_val = (int)val;
+                        printk(KERN_INFO "SmartLamp: Valor inteiro extraído: %ld\n", val);
+                        return 0; // Sucesso
+                    } else if (strcmp(cmd, "GET_TEMP") == 0 || strcmp(cmd, "GET_HUM") == 0) {
+                        // Para comandos que retornam floats
+                        float val;
+                        ret = kstrtof(value_start, 10, &val); // Usa kstrtof para converter para float
+                        if (ret) {
+                            printk(KERN_ERR "SmartLamp: Erro ao converter float '%s'. Código: %d\n", value_start, ret);
+                            return -EINVAL;
+                        }
+                        if (float_val) *float_val = val;
+                        printk(KERN_INFO "SmartLamp: Valor float extraído: %f\n", val);
+                        return 0; // Sucesso
+                    } else {
+                        printk(KERN_ERR "SmartLamp: Resposta para comando desconhecido ou sem tratamento de valor: %s\n", cmd);
+                        return -EINVAL;
+                    }
+                }
+                
+                // Reinicia para a próxima linha
+                recv_size = 0;
+                memset(recv_line, 0, MAX_RECV_LINE);
+            } else {
+                recv_line[recv_size++] = usb_in_buffer[i];
+            }
+        }
+        
+        retries--;
+    }
+
+    printk(KERN_ERR "SmartLamp: Timeout - não recebeu resposta esperada\n");
+    return -ETIMEDOUT; // Retorna o código de erro de timeout
+}
+
+// Executado quando o arquivo /sys/kernel/smartlamp/{led, ldr, temp, hum} é lido
+static ssize_t attr_show(struct kobject *sys_obj, struct kobj_attribute *attr, char *buff) {
+    int int_value = 0;
+    float float_value = 0.0f;
+    const char *attr_name = attr->attr.name;
+    int ret;
+    int len;
+
+    printk(KERN_INFO "SmartLamp: Lendo %s ...\n", attr_name);
+
+    if (strcmp(attr_name, "led") == 0) {
+        ret = usb_send_cmd("GET_LED", 0, &int_value, NULL);
+        if (ret < 0) {
+            printk(KERN_ERR "SmartLamp: Erro ao ler %s. Código: %d\n", attr_name, ret);
+            return ret; // Retorna o código de erro diretamente
+        }
+        len = sprintf(buff, "%d\n", int_value);
+    } else if (strcmp(attr_name, "ldr") == 0) {
+        ret = usb_send_cmd("GET_LDR", 0, &int_value, NULL);
+        if (ret < 0) {
+            printk(KERN_ERR "SmartLamp: Erro ao ler %s. Código: %d\n", attr_name, ret);
+            return ret;
+        }
+        len = sprintf(buff, "%d\n", int_value);
+    } else if (strcmp(attr_name, "temp") == 0) {
+        ret = usb_send_cmd("GET_TEMP", 0, NULL, &float_value);
+        if (ret < 0) {
+            printk(KERN_ERR "SmartLamp: Erro ao ler %s. Código: %d\n", attr_name, ret);
+            return ret;
+        }
+        // Formata o float para string com uma casa decimal. Adapte para mais casas se necessário (e.g., "%.2f")
+        len = snprintf(buff, PAGE_SIZE, "%.1f\n", float_value);
+    } else if (strcmp(attr_name, "hum") == 0) {
+        ret = usb_send_cmd("GET_HUM", 0, NULL, &float_value);
+        if (ret < 0) {
+            printk(KERN_ERR "SmartLamp: Erro ao ler %s. Código: %d\n", attr_name, ret);
+            return ret;
+        }
+        // Formata o float para string com uma casa decimal
+        len = snprintf(buff, PAGE_SIZE, "%.1f\n", float_value);
+    } else {
+        printk(KERN_ERR "SmartLamp: Atributo desconhecido: %s\n", attr_name);
+        return -EINVAL;
+    }
+
+    return len;
+}
+
+// Executado quando o arquivo /sys/kernel/smartlamp/{led} é escrito
+static ssize_t attr_store(struct kobject *sys_obj, struct kobj_attribute *attr, const char *buff, size_t count) {
+    long value_long;
+    int ret_val; // Variável para capturar o retorno de usb_send_cmd
+    const char *attr_name = attr->attr.name;
+    int ret; // Variável para kstrtol
+
+    // Converte o valor recebido para long
+    ret = kstrtol(buff, 10, &value_long);
+    if (ret) {
+        printk(KERN_ALERT "SmartLamp: valor de %s invalido. Código: %d\n", attr_name, ret);
+        return -EINVAL; // Melhor usar EINVAL para erro de valor inválido
+    }
+
+    // Verifica se é um atributo válido para escrita
+    if (strcmp(attr_name, "led") == 0) {
+        // Valida o range do LED (0-100)
+        if (value_long < 0 || value_long > 100) {
+            printk(KERN_ALERT "SmartLamp: valor do LED deve estar entre 0 e 100.\n");
+            return -EINVAL;
+        }
+        
+        printk(KERN_INFO "SmartLamp: Setando %s para %ld ...\n", attr_name, value_long);
+        
+        // Envia o comando SET_LED com o valor. Não esperamos retorno numérico aqui, apenas status.
+        ret_val = usb_send_cmd("SET_LED", (int)value_long, NULL, NULL); // Não passa ponteiros para valor
+        if (ret_val < 0) {
+            printk(KERN_ALERT "SmartLamp: erro ao setar o valor do %s. Código: %d\n", attr_name, ret_val);
+            return ret_val;
+        }
+    } else if (strcmp(attr_name, "ldr") == 0 || strcmp(attr_name, "temp") == 0 || strcmp(attr_name, "hum") == 0) {
+        // LDR, TEMP, HUM são somente leitura
+        printk(KERN_ALERT "SmartLamp: %s é somente leitura.\n", attr_name);
+        return -EACCES;
+    } else {
+        printk(KERN_ERR "SmartLamp: Atributo desconhecido: %s\n", attr_name);
+        return -EINVAL;
+    }
+
+    return count;
+}
+*/
